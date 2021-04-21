@@ -920,11 +920,25 @@ static u32 aspeed_i2c_get_clk_reg_val(struct device *dev,
 
 static u32 aspeed_i2c_24xx_get_clk_reg_val(struct device *dev, u32 divisor, u32 duty_cycle)
 {
+	u32 val;
+
 	/*
 	 * clk_high and clk_low are each 3 bits wide, so each can hold a max
 	 * value of 8 giving a clk_high_low_max of 16.
 	 */
-	return aspeed_i2c_get_clk_reg_val(dev, GENMASK(2, 0), divisor, duty_cycle);
+	val = aspeed_i2c_get_clk_reg_val(dev, GENMASK(2, 0), divisor, duty_cycle);
+
+	/*
+	 * We have seen consistent I2C transaction errors on wedge100
+	 * i2c-3/4/9 busses, and such transaction errors can be fixed by
+	 * increasing I2C setup/hold time in I2CD04 register.
+	 * Please refer to AST2400 datasheet, Chapter 40 for I2CD04
+	 * register definition.
+	 *
+	 * XXX "0x77700300" is copied from linux-aspeed-4.1 (aspeed sdk).
+	 * Shall we apply it to all the AST2400 platforms?
+	 */
+	return (val | 0x77700300);
 }
 
 static u32 aspeed_i2c_25xx_get_clk_reg_val(struct device *dev, u32 divisor, u32 duty_cycle)
