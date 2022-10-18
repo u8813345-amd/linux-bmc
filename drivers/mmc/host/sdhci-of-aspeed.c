@@ -78,6 +78,22 @@ struct aspeed_sdhci {
 };
 
 /*
+ * "skip_probe" flag is used to bypass below kernel panic (repetitive
+ * interrupt) when probing mmc controller at boot up time. The error has
+ * been reported on various OpenBMC platforms, such as wedge400, elbert
+ * and etc.
+ *
+ * "Got data interrupt 0x00000002 even though no data operation was in progress"
+ *
+ * XXX THIS IS A HACK. It needs to be dropped when the issue is root caused
+ * and fixed.
+ */
+static int skip_probe = 0;
+module_param(skip_probe, int, 0);
+MODULE_PARM_DESC(skip_probe,
+		 "Set skip_probe to 1 to skip device probe (default=0)");
+
+/*
  * The function sets the mirror register for updating
  * capbilities of the current slot.
  *
@@ -371,6 +387,11 @@ static int aspeed_sdhci_probe(struct platform_device *pdev)
 	struct resource *res;
 	int slot;
 	int ret;
+
+	if (skip_probe) {
+		dev_info(&pdev->dev, "skip_probe parameter is set. Exiting\n");
+		return -ENODEV;
+	}
 
 	aspeed_pdata = of_device_get_match_data(&pdev->dev);
 	if (!aspeed_pdata) {
