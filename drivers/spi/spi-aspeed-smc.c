@@ -46,6 +46,8 @@
 
 /* CEx Address Decoding Range Register */
 #define CE0_SEGMENT_ADDR_REG		0x30
+#define CE1_SEGMENT_ADDR_REG		0x34
+#define CE2_SEGMENT_ADDR_REG		0x38
 
 /* CEx Read timing compensation register */
 #define CE0_TIMING_COMPENSATION_REG	0x94
@@ -84,6 +86,7 @@ struct aspeed_spi_data {
 	u32 (*segment_reg)(struct aspeed_spi *aspi, u32 start, u32 end);
 	int (*calibrate)(struct aspeed_spi_chip *chip, u32 hdiv,
 			 const u8 *golden_buf, u8 *test_buf);
+	void (*shutdown)(struct aspeed_spi *aspi);
 };
 
 #define ASPEED_SPI_MAX_NUM_CS	5
@@ -782,6 +785,15 @@ static void aspeed_spi_remove(struct platform_device *pdev)
 	aspeed_spi_enable(aspi, false);
 }
 
+static void aspeed_spi_shutdown(struct platform_device *pdev)
+{
+	struct spi_controller *ctlr = platform_get_drvdata(pdev);
+	struct aspeed_spi *aspi = spi_controller_get_devdata(ctlr);
+
+	if (aspi->data->shutdown)
+		aspi->data->shutdown(aspi);
+}
+
 /*
  * AHB mappings
  */
@@ -1087,6 +1099,18 @@ static int aspeed_spi_ast2600_calibrate(struct aspeed_spi_chip *chip, u32 hdiv,
 	return -1;
 }
 
+static void aspeed_spi_ast2500_shutdown(struct aspeed_spi *aspi)
+{
+	/* restoring the register which we used before to default*/
+	writel(0x8000002A, aspi->regs + CONFIG_REG);
+	writel(0x700, aspi->regs + CE_CTRL_REG);
+	writel(0x0, aspi->regs + CE0_CTRL_REG);
+	writel(0x50400000, aspi->regs + CE0_SEGMENT_ADDR_REG);
+	writel(0x54500000, aspi->regs + CE1_SEGMENT_ADDR_REG);
+	writel(0x58540000, aspi->regs + CE2_SEGMENT_ADDR_REG);
+	writel(0x0, aspi->regs + CE0_TIMING_COMPENSATION_REG);
+}
+
 /*
  * Platform definitions
  */
@@ -1128,6 +1152,7 @@ static const struct aspeed_spi_data ast2500_fmc_data = {
 	.segment_start = aspeed_spi_segment_start,
 	.segment_end   = aspeed_spi_segment_end,
 	.segment_reg   = aspeed_spi_segment_reg,
+	.shutdown      = aspeed_spi_ast2500_shutdown,
 };
 
 static const struct aspeed_spi_data ast2500_spi_data = {
@@ -1142,6 +1167,7 @@ static const struct aspeed_spi_data ast2500_spi_data = {
 	.segment_start = aspeed_spi_segment_start,
 	.segment_end   = aspeed_spi_segment_end,
 	.segment_reg   = aspeed_spi_segment_reg,
+	.shutdown      = aspeed_spi_ast2500_shutdown,
 };
 
 static const struct aspeed_spi_data ast2600_fmc_data = {
@@ -1188,6 +1214,7 @@ MODULE_DEVICE_TABLE(of, aspeed_spi_matches);
 static struct platform_driver aspeed_spi_driver = {
 	.probe			= aspeed_spi_probe,
 	.remove			= aspeed_spi_remove,
+	.shutdown		= aspeed_spi_shutdown,
 	.driver	= {
 		.name		= DEVICE_NAME,
 		.of_match_table = aspeed_spi_matches,
