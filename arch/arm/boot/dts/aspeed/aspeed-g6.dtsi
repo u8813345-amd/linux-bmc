@@ -1310,6 +1310,12 @@
 				interrupt-controller;
 				status = "disabled";
 			};
+
+			otp: otp@1e6f2000 {
+				compatible = "aspeed,ast2600-otp";
+				reg = <0x1e6f2000 0x200>;
+				aspeed,scu = <&syscon>;
+			};
 		};
 
 		i3c: bus@1e7a0000 {
