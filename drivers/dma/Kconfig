@@ -100,6 +100,15 @@ config ARM_DMA350
 	help
 	  Enable support for the Arm DMA-350 controller.
 
+config ASPEED_AST2600_UDMA
+	bool "Aspeed AST2600 UDMA support"
+	depends on ARCH_ASPEED || COMPILE_TEST
+	help
+	  Enable support for Aspeed AST2600 UART DMA. Select this option if you
+	  have a AST2600 SoC integrated system. The driver provides the UART DMA
+	  support with the dmaengine subsystem, which can be leveraged by generic
+	  8250 serial drivers.
+
 config AT_HDMAC
 	tristate "Atmel AHB DMA support"
 	depends on ARCH_AT91
