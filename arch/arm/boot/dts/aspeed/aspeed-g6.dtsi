@@ -1316,6 +1316,15 @@
 				reg = <0x1e6f2000 0x200>;
 				aspeed,scu = <&syscon>;
 			};
+
+			udma: dma-controller@1e79e000 {
+				compatible = "aspeed,ast2600-udma";
+				reg = <0x1e79e000 0x1000>;
+				interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
+				dma-channels = <28>;
+				#dma-cells = <1>;
+				status = "disabled";
+			};
 		};
 
 		i3c: bus@1e7a0000 {
