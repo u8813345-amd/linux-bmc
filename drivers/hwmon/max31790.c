@@ -206,7 +206,8 @@ static int max31790_read_fan(struct device *dev, u32 attr, int channel,
 		mutex_unlock(&data->update_lock);
 		return 0;
 	case hwmon_fan_enable:
-		*val = !!(data->fan_config[channel] & MAX31790_FAN_CFG_TACH_INPUT_EN);
+		*val = !!(data->fan_config[channel % NR_CHANNEL] &
+			  MAX31790_FAN_CFG_TACH_INPUT_EN);
 		return 0;
 	default:
 		return -EOPNOTSUPP;
@@ -245,12 +246,12 @@ static int max31790_write_fan(struct device *dev, u32 attr, int channel,
 
 		data->target_count[channel] = target_count << 5;
 
-		err = i2c_smbus_write_word_swapped(client,
-					MAX31790_REG_TARGET_COUNT(channel),
-					data->target_count[channel]);
+		err = i2c_smbus_write_word_swapped(
+			client, MAX31790_REG_TARGET_COUNT(channel),
+			data->target_count[channel]);
 		break;
 	case hwmon_fan_enable:
-		fan_config = data->fan_config[channel];
+		fan_config = data->fan_config[channel % NR_CHANNEL];
 		if (val == 0) {
 			fan_config &= ~MAX31790_FAN_CFG_TACH_INPUT_EN;
 		} else if (val == 1) {
@@ -259,11 +260,14 @@ static int max31790_write_fan(struct device *dev, u32 attr, int channel,
 			err = -EINVAL;
 			break;
 		}
-		if (fan_config != data->fan_config[channel]) {
-			err = i2c_smbus_write_byte_data(client, MAX31790_REG_FAN_CONFIG(channel),
-							fan_config);
+		if (fan_config != data->fan_config[channel % NR_CHANNEL]) {
+			err = i2c_smbus_write_byte_data(
+				client,
+				MAX31790_REG_FAN_CONFIG(channel % NR_CHANNEL),
+				fan_config);
 			if (!err)
-				data->fan_config[channel] = fan_config;
+				data->fan_config[channel % NR_CHANNEL] =
+					fan_config;
 		}
 		break;
 	default:
@@ -294,7 +298,8 @@ static umode_t max31790_fan_is_visible(const void *_data, u32 attr, int channel)
 			return 0644;
 		return 0;
 	case hwmon_fan_enable:
-		if (channel < NR_CHANNEL)
+		if (channel < NR_CHANNEL ||
+		    (fan_config & MAX31790_FAN_CFG_TACH_INPUT))
 			return 0644;
 		return 0;
 	default:
@@ -451,22 +456,22 @@ static umode_t max31790_is_visible(const void *data,
 	}
 }
 
-static const struct hwmon_channel_info * const max31790_info[] = {
-	HWMON_CHANNEL_INFO(fan,
-			   HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
-			   HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
-			   HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
-			   HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
-			   HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
-			   HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
-			   HWMON_F_INPUT | HWMON_F_FAULT,
-			   HWMON_F_INPUT | HWMON_F_FAULT,
-			   HWMON_F_INPUT | HWMON_F_FAULT,
-			   HWMON_F_INPUT | HWMON_F_FAULT,
-			   HWMON_F_INPUT | HWMON_F_FAULT,
-			   HWMON_F_INPUT | HWMON_F_FAULT),
-	HWMON_CHANNEL_INFO(pwm,
-			   HWMON_PWM_INPUT | HWMON_PWM_ENABLE,
+static const struct hwmon_channel_info *const max31790_info[] = {
+	HWMON_CHANNEL_INFO(
+		fan,
+		HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
+		HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
+		HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
+		HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
+		HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
+		HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_FAULT | HWMON_F_ENABLE,
+		HWMON_F_INPUT | HWMON_F_FAULT | HWMON_F_ENABLE,
+		HWMON_F_INPUT | HWMON_F_FAULT | HWMON_F_ENABLE,
+		HWMON_F_INPUT | HWMON_F_FAULT | HWMON_F_ENABLE,
+		HWMON_F_INPUT | HWMON_F_FAULT | HWMON_F_ENABLE,
+		HWMON_F_INPUT | HWMON_F_FAULT | HWMON_F_ENABLE,
+		HWMON_F_INPUT | HWMON_F_FAULT | HWMON_F_ENABLE),
+	HWMON_CHANNEL_INFO(pwm, HWMON_PWM_INPUT | HWMON_PWM_ENABLE,
 			   HWMON_PWM_INPUT | HWMON_PWM_ENABLE,
 			   HWMON_PWM_INPUT | HWMON_PWM_ENABLE,
 			   HWMON_PWM_INPUT | HWMON_PWM_ENABLE,
