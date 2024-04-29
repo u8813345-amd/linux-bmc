@@ -13,6 +13,12 @@
 	interrupt-parent = <&gic>;
 
 	aliases {
+		i3c0 = &i3c0;
+		i3c1 = &i3c1;
+		i3c2 = &i3c2;
+		i3c3 = &i3c3;
+		i3c4 = &i3c4;
+		i3c5 = &i3c5;
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
@@ -1152,6 +1158,15 @@
 					interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
 					aspeed,global-regs = <&i3c_global 0>;
 					status = "disabled";
+
+					i2c-scl-hz = <1000000>;
+					i3c-scl-hz = <2000000>;
+					i3c-od-scl-hi-period-ns = <380>;
+					i3c-od-scl-lo-period-ns = <620>;
+					i3c-pp-scl-hi-period-ns = <250>;
+					i3c-pp-scl-lo-period-ns = <250>;
+					sda-tx-hold-ns = <70>;
+					sda-pullup-ohms = <2000>;
 				};
 
 				i3c1: i3c@3000 {
@@ -1165,6 +1180,15 @@
 					interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
 					aspeed,global-regs = <&i3c_global 1>;
 					status = "disabled";
+
+					i2c-scl-hz = <1000000>;
+					i3c-scl-hz = <2000000>;
+					i3c-od-scl-hi-period-ns = <380>;
+					i3c-od-scl-lo-period-ns = <620>;
+					i3c-pp-scl-hi-period-ns = <250>;
+					i3c-pp-scl-lo-period-ns = <250>;
+					sda-tx-hold-ns = <70>;
+					sda-pullup-ohms = <2000>;
 				};
 
 				i3c2: i3c@4000 {
@@ -1178,6 +1202,15 @@
 					interrupts = <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>;
 					aspeed,global-regs = <&i3c_global 2>;
 					status = "disabled";
+
+					i2c-scl-hz = <1000000>;
+					i3c-scl-hz = <2000000>;
+					i3c-od-scl-hi-period-ns = <380>;
+					i3c-od-scl-lo-period-ns = <620>;
+					i3c-pp-scl-hi-period-ns = <250>;
+					i3c-pp-scl-lo-period-ns = <250>;
+					sda-tx-hold-ns = <70>;
+					sda-pullup-ohms = <2000>;
 				};
 
 				i3c3: i3c@5000 {
@@ -1191,6 +1224,15 @@
 					interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
 					aspeed,global-regs = <&i3c_global 3>;
 					status = "disabled";
+
+					i2c-scl-hz = <1000000>;
+					i3c-scl-hz = <2000000>;
+					i3c-od-scl-hi-period-ns = <380>;
+					i3c-od-scl-lo-period-ns = <620>;
+					i3c-pp-scl-hi-period-ns = <250>;
+					i3c-pp-scl-lo-period-ns = <250>;
+					sda-tx-hold-ns = <70>;
+					sda-pullup-ohms = <2000>;
 				};
 
 				i3c4: i3c@6000 {
@@ -1204,6 +1246,15 @@
 					interrupts = <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>;
 					aspeed,global-regs = <&i3c_global 4>;
 					status = "disabled";
+
+					i2c-scl-hz = <1000000>;
+					i3c-scl-hz = <2000000>;
+					i3c-od-scl-hi-period-ns = <380>;
+					i3c-od-scl-lo-period-ns = <620>;
+					i3c-pp-scl-hi-period-ns = <250>;
+					i3c-pp-scl-lo-period-ns = <250>;
+					sda-tx-hold-ns = <70>;
+					sda-pullup-ohms = <2000>;
 				};
 
 				i3c5: i3c@7000 {
@@ -1217,6 +1268,15 @@
 					interrupts = <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>;
 					aspeed,global-regs = <&i3c_global 5>;
 					status = "disabled";
+
+					i2c-scl-hz = <1000000>;
+					i3c-scl-hz = <2000000>;
+					i3c-od-scl-hi-period-ns = <380>;
+					i3c-od-scl-lo-period-ns = <620>;
+					i3c-pp-scl-hi-period-ns = <250>;
+					i3c-pp-scl-lo-period-ns = <250>;
+					sda-tx-hold-ns = <70>;
+					sda-pullup-ohms = <2000>;
 				};
 			};
 
@@ -1244,6 +1304,14 @@
 				status = "disabled";
 			};
 		};
+
+		i3c: bus@1e7a0000 {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0 0x1e7a0000 0x8000>;
+		};
+
 	};
 };
 
