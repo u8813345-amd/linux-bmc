@@ -68,6 +68,16 @@ struct dw_i3c_master {
 
 	/* platform-specific data */
 	const struct dw_i3c_platform_ops *platform_ops;
+
+	struct {
+		unsigned long core_rate;
+		unsigned long core_period;
+		u32 i3c_od_scl_low;
+		u32 i3c_od_scl_high;
+		u32 i3c_pp_scl_low;
+		u32 i3c_pp_scl_high;
+		u32 timed_reset_scl_low_ns;
+	} timing;
 };
 
 struct dw_i3c_platform_ops {
@@ -87,6 +97,9 @@ struct dw_i3c_platform_ops {
 	 */
 	void (*set_dat_ibi)(struct dw_i3c_master *i3c,
 			    struct i3c_dev_desc *dev, bool enable, u32 *reg);
+	void (*gen_target_reset_pattern)(struct dw_i3c_master *i3c);
+	void (*gen_tbits_in)(struct dw_i3c_master *i3c);
+	int (*bus_recovery)(struct dw_i3c_master *i3c);
 };
 
 extern int dw_i3c_common_probe(struct dw_i3c_master *master,

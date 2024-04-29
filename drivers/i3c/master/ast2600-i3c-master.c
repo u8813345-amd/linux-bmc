@@ -10,6 +10,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/bitfield.h>
 
 #include "dw-i3c-master.h"
 
@@ -33,9 +34,29 @@
 #define AST2600_I3CG_REG1_SA_EN			BIT(15)
 #define AST2600_I3CG_REG1_INST_ID_MASK		GENMASK(19, 16)
 #define AST2600_I3CG_REG1_INST_ID(x)		(((x) << 16) & AST2600_I3CG_REG1_INST_ID_MASK)
+#define SCL_SW_MODE_OE				BIT(20)
+#define SCL_OUT_SW_MODE_VAL			BIT(21)
+#define SCL_IN_SW_MODE_VAL			BIT(23)
+#define SDA_SW_MODE_OE				BIT(24)
+#define SDA_OUT_SW_MODE_VAL			BIT(25)
+#define SDA_IN_SW_MODE_VAL			BIT(27)
+#define SCL_IN_SW_MODE_EN			BIT(28)
+#define SDA_IN_SW_MODE_EN			BIT(29)
+#define SCL_OUT_SW_MODE_EN			BIT(30)
+#define SDA_OUT_SW_MODE_EN			BIT(31)
 
 #define AST2600_DEFAULT_SDA_PULLUP_OHMS		2000
 
+/* dw-i3c registers */
+#define IBI_QUEUE_STATUS			0x18
+
+#define PRESENT_STATE				0x54
+#define   CM_TFR_STS				GENMASK(13, 8)
+#define     CM_TFR_STS_MASTER_SERV_IBI		0xe
+#define   SDA_LINE_SIGNAL_LEVEL			BIT(1)
+#define   SCL_LINE_SIGNAL_LEVEL			BIT(0)
+
+/* DAT */
 #define DEV_ADDR_TABLE_IBI_PEC			BIT(11)
 
 struct ast2600_i3c {
@@ -117,9 +138,125 @@ static void ast2600_i3c_set_dat_ibi(struct dw_i3c_master *i3c,
 	}
 }
 
+static int aspeed_i3c_bus_recovery(struct dw_i3c_master *dw)
+{
+	struct ast2600_i3c *i3c = to_ast2600_i3c(dw);
+	int i, ret = -1;
+
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SCL_OUT_SW_MODE_VAL, SCL_OUT_SW_MODE_VAL);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SCL_SW_MODE_OE, SCL_SW_MODE_OE);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SCL_OUT_SW_MODE_EN, SCL_OUT_SW_MODE_EN);
+
+	for (i = 0; i < 19; i++) {
+		regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+				  SCL_OUT_SW_MODE_VAL, 0);
+		regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+				  SCL_OUT_SW_MODE_VAL, SCL_OUT_SW_MODE_VAL);
+		if (readl(dw->regs + PRESENT_STATE) & SDA_LINE_SIGNAL_LEVEL) {
+			ret = 0;
+			break;
+		}
+	}
+
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SCL_OUT_SW_MODE_EN, 0);
+	if (ret)
+		dev_err(&dw->base.dev, "Failed to recover the bus\n");
+
+	return ret;
+}
+
+static void ast2600_i3c_gen_target_reset_pattern(struct dw_i3c_master *dw)
+{
+	struct ast2600_i3c *i3c = to_ast2600_i3c(dw);
+	int i;
+
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_OUT_SW_MODE_VAL | SCL_OUT_SW_MODE_VAL,
+			  SDA_OUT_SW_MODE_VAL | SCL_OUT_SW_MODE_VAL);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_SW_MODE_OE | SCL_SW_MODE_OE,
+			  SDA_SW_MODE_OE | SCL_SW_MODE_OE);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_OUT_SW_MODE_EN | SCL_OUT_SW_MODE_EN,
+			  SDA_OUT_SW_MODE_EN | SCL_OUT_SW_MODE_EN);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_IN_SW_MODE_VAL | SCL_IN_SW_MODE_VAL,
+			  SDA_IN_SW_MODE_VAL | SCL_IN_SW_MODE_VAL);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_IN_SW_MODE_EN | SCL_IN_SW_MODE_EN,
+			  SDA_IN_SW_MODE_EN | SCL_IN_SW_MODE_EN);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SCL_OUT_SW_MODE_VAL, 0);
+	for (i = 0; i < 7; i++) {
+		regmap_write_bits(i3c->global_regs,
+				  AST2600_I3CG_REG1(i3c->global_idx),
+				  SDA_OUT_SW_MODE_VAL, 0);
+		regmap_write_bits(i3c->global_regs,
+				  AST2600_I3CG_REG1(i3c->global_idx),
+				  SDA_OUT_SW_MODE_VAL, SDA_OUT_SW_MODE_VAL);
+	}
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SCL_OUT_SW_MODE_VAL, SCL_OUT_SW_MODE_VAL);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_OUT_SW_MODE_VAL, 0);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_OUT_SW_MODE_VAL, SDA_OUT_SW_MODE_VAL);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_OUT_SW_MODE_EN | SCL_OUT_SW_MODE_EN, 0);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_IN_SW_MODE_EN | SCL_IN_SW_MODE_EN, 0);
+}
+
+static bool ast2600_i3c_fsm_exit_serv_ibi(struct dw_i3c_master *dw)
+{
+	u32 state;
+
+	/*
+	 * Clear the IBI queue to enable the hardware to generate SCL and
+	 * begin detecting the T-bit low to stop reading IBI data.
+	 */
+	readl(dw->regs + IBI_QUEUE_STATUS);
+	state = FIELD_GET(CM_TFR_STS, readl(dw->regs + PRESENT_STATE));
+	if (state == CM_TFR_STS_MASTER_SERV_IBI)
+		return false;
+
+	return true;
+}
+
+static void ast2600_i3c_gen_tbits_in(struct dw_i3c_master *dw)
+{
+	struct ast2600_i3c *i3c = to_ast2600_i3c(dw);
+	bool is_idle;
+	int ret;
+
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_IN_SW_MODE_VAL, SDA_IN_SW_MODE_VAL);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_IN_SW_MODE_EN, SDA_IN_SW_MODE_EN);
+
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_IN_SW_MODE_VAL, 0);
+	ret = readx_poll_timeout_atomic(ast2600_i3c_fsm_exit_serv_ibi, dw,
+					is_idle, is_idle, 0, 2000000);
+	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
+			  SDA_IN_SW_MODE_EN, 0);
+	if (ret)
+		dev_err(&dw->base.dev,
+			"Failed to exit the I3C fsm from %lx(MASTER_SERV_IBI): %d",
+			FIELD_GET(CM_TFR_STS, readl(dw->regs + PRESENT_STATE)),
+			ret);
+}
+
 static const struct dw_i3c_platform_ops ast2600_i3c_ops = {
 	.init = ast2600_i3c_init,
 	.set_dat_ibi = ast2600_i3c_set_dat_ibi,
+	.gen_target_reset_pattern = ast2600_i3c_gen_target_reset_pattern,
+	.gen_tbits_in = ast2600_i3c_gen_tbits_in,
+	.bus_recovery = aspeed_i3c_bus_recovery,
 };
 
 static int ast2600_i3c_probe(struct platform_device *pdev)
