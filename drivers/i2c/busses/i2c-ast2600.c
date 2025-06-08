@@ -1397,6 +1397,7 @@ static void ast2600_i2c_target_byte_irq(struct ast2600_i2c_bus *i2c_bus, u32 sts
 {
 	u32 i2c_buff = readl(i2c_bus->reg_base + AST2600_I2CC_STS_AND_BUFF);
 	u32 cmd = AST2600_I2CS_ACTIVE_ALL;
+	u32 sts_remain = sts;
 	u8 byte_data;
 	u8 value;
 
@@ -1421,14 +1422,24 @@ static void ast2600_i2c_target_byte_irq(struct ast2600_i2c_bus *i2c_bus, u32 sts
 	}
 
 	sts &= ~(AST2600_I2CS_ADDR_INDICATE_MASK);
+	if (sts & AST2600_I2CS_STOP) {
+		if (!(sts & AST2600_I2CS_RX_DONE_NAK))
+			i2c_slave_event(i2c_bus->target, I2C_SLAVE_STOP, &value);
+		sts_remain &= ~(AST2600_I2CS_STOP | AST2600_I2CS_TX_NAK);
+	}
 
-	switch (sts) {
+	if (!sts_remain)
+		goto slave_byte_out;
+
+	switch (sts_remain) {
 	case AST2600_I2CS_SLAVE_MATCH | AST2600_I2CS_RX_DONE | AST2600_I2CS_WAIT_RX_DMA:
-		i2c_slave_event(i2c_bus->target, I2C_SLAVE_WRITE_REQUESTED, &value);
 		/* first address match is address */
 		byte_data = AST2600_I2CC_GET_RX_BUFF(i2c_buff);
+		if (i2c_slave_event(i2c_bus->target, I2C_SLAVE_WRITE_REQUESTED, &byte_data) < 0)
+			cmd |= AST2600_I2CS_RX_CMD_LAST;
 		break;
 	case AST2600_I2CS_RX_DONE | AST2600_I2CS_WAIT_RX_DMA:
+	case AST2600_I2CS_RX_DONE_NAK | AST2600_I2CS_RX_DONE:
 		byte_data = AST2600_I2CC_GET_RX_BUFF(i2c_buff);
 		i2c_slave_event(i2c_bus->target, I2C_SLAVE_WRITE_RECEIVED, &byte_data);
 		break;
@@ -1443,14 +1454,12 @@ static void ast2600_i2c_target_byte_irq(struct ast2600_i2c_bus *i2c_bus, u32 sts
 		i2c_slave_event(i2c_bus->target, I2C_SLAVE_READ_PROCESSED, &byte_data);
 		writel(byte_data, i2c_bus->reg_base + AST2600_I2CC_STS_AND_BUFF);
 		break;
-	case AST2600_I2CS_STOP:
-	case AST2600_I2CS_STOP | AST2600_I2CS_TX_NAK:
-		i2c_slave_event(i2c_bus->target, I2C_SLAVE_STOP, &value);
-		break;
 	default:
 		dev_dbg(i2c_bus->dev, "unhandled pkt isr %x\n", sts);
 		break;
 	}
+
+slave_byte_out:
 	writel(cmd, i2c_bus->reg_base + AST2600_I2CS_CMD_STS);
 	writel(sts, i2c_bus->reg_base + AST2600_I2CS_ISR);
 	readl(i2c_bus->reg_base + AST2600_I2CS_ISR);
