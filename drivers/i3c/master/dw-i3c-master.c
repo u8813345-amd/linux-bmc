@@ -393,9 +393,11 @@ static int dw_i3c_master_enter_halt(struct dw_i3c_master *master, bool by_sw)
 	u32 halt_state = CM_TFR_STS_MASTER_HALT;
 	int ret;
 
-	if (by_sw)
+	if (by_sw) {
+		dev_err(&master->base.dev, "%s: by software.\n", __func__);
 		writel(readl(master->regs + DEVICE_CTRL) | DEV_CTRL_ABORT,
 		       master->regs + DEVICE_CTRL);
+	}
 
 	ret = readl_poll_timeout_atomic(master->regs + PRESENT_STATE, status,
 					FIELD_GET(CM_TFR_STS, status) == halt_state,
@@ -518,6 +520,7 @@ static void dw_i3c_master_dequeue_xfer_locked(struct dw_i3c_master *master,
 {
 	if (master->xferqueue.cur == xfer) {
 		u32 status;
+		int ret;
 
 		master->xferqueue.cur = NULL;
 
@@ -525,8 +528,15 @@ static void dw_i3c_master_dequeue_xfer_locked(struct dw_i3c_master *master,
 		       RESET_CTRL_RESP_QUEUE | RESET_CTRL_CMD_QUEUE,
 		       master->regs + RESET_CTRL);
 
-		readl_poll_timeout_atomic(master->regs + RESET_CTRL, status,
+		ret = readl_poll_timeout_atomic(master->regs + RESET_CTRL, status,
 					  !status, 10, 1000000);
+
+		if (ret)
+			dev_err(&master->base.dev,
+				"Xfer dequeue failed: %d %#x %#x %#x\n", ret,
+				readl(master->regs + PRESENT_STATE),
+				readl(master->regs + QUEUE_STATUS_LEVEL),
+				readl(master->regs + RESET_CTRL));
 	} else {
 		list_del_init(&xfer->node);
 	}
@@ -1704,7 +1714,7 @@ static void dw_i3c_master_irq_handle_ibis(struct dw_i3c_master *master)
 		reg = readl(master->regs + IBI_QUEUE_STATUS);
 
 		if (reg & IBI_QUEUE_STATUS_RSP_NACK) {
-			dev_dbg_ratelimited(&master->base.dev,
+			dev_err(&master->base.dev,
 					    "Nacked IBI from non-requested dev addr %02lx\n",
 					    IBI_QUEUE_IBI_ADDR(reg));
 			goto ibi_fifo_clear;
@@ -1732,7 +1742,10 @@ ibi_fifo_clear:
 					10, 1000000);
 	if (ret)
 		dev_err(&master->base.dev,
-			"Timeout waiting for IBI FIFO reset\n");
+			"Timeout waiting for IBI FIFO reset: %d %#x %#x %#x\n", ret,
+			readl(master->regs + PRESENT_STATE),
+			readl(master->regs + QUEUE_STATUS_LEVEL),
+			readl(master->regs + RESET_CTRL));
 
 	dw_i3c_master_exit_halt(master);
 }
