@@ -868,6 +868,7 @@ static struct usb_function_instance *ecm_alloc_inst(void)
 	return &opts->func_inst;
 }
 
+#if 0
 static void ecm_suspend(struct usb_function *f)
 {
 	struct f_ecm *ecm = func_to_ecm(f);
@@ -887,6 +888,7 @@ static void ecm_resume(struct usb_function *f)
 
 	gether_resume(&ecm->port);
 }
+#endif
 
 static int ecm_get_status(struct usb_function *f)
 {
@@ -968,9 +970,7 @@ static struct usb_function *ecm_alloc(struct usb_function_instance *fi)
 	ecm->port.func.setup = ecm_setup;
 	ecm->port.func.disable = ecm_disable;
 	ecm->port.func.free_func = ecm_free;
-	ecm->port.func.suspend = ecm_suspend;
 	ecm->port.func.get_status = ecm_get_status;
-	ecm->port.func.resume = ecm_resume;
 
 	return &ecm->port.func;
 }
