@@ -306,6 +306,7 @@
 				clocks = <&syscon ASPEED_CLK_APB>;
 				resets = <&syscon ASPEED_RESET_ADC>;
 				#io-channel-cells = <1>;
+				aspeed,scu = <&syscon>;
 				status = "disabled";
 			};
 
