@@ -49,6 +49,12 @@
 #define CE1_SEGMENT_ADDR_REG		0x34
 #define CE2_SEGMENT_ADDR_REG		0x38
 
+#define MISC_CTRL_REG			0x54
+#define   SPI_USER_CMD_MODE		BIT(27)
+#define   SPI_CS_TO_DIS		BIT(26)
+#define   SPI_UNALGNED_ACCESS		BIT(24)
+#define   SPI_CS_CONTINUOUS		BIT(16)
+
 /* CEx Read timing compensation register */
 #define CE0_TIMING_COMPENSATION_REG	0x94
 
@@ -88,6 +94,8 @@ struct aspeed_spi_data {
 	int (*calibrate)(struct aspeed_spi_chip *chip, u32 hdiv,
 			 const u8 *golden_buf, u8 *test_buf);
 	void (*shutdown)(struct aspeed_spi *aspi);
+	void (*safs_start)(struct aspeed_spi *aspi);
+	void (*safs_stop)(struct aspeed_spi *aspi);
 };
 
 #define ASPEED_SPI_MAX_NUM_CS	5
@@ -307,6 +315,9 @@ static int do_aspeed_spi_exec_op(struct spi_mem *mem, const struct spi_mem_op *o
 	u32 ctl_val;
 	int ret = 0;
 
+	if (aspi->data->safs_stop)
+		aspi->data->safs_stop(aspi);
+
 	addr_mode = readl(aspi->regs + CE_CTRL_REG);
 	addr_mode_backup = addr_mode;
 
@@ -353,6 +364,9 @@ static int do_aspeed_spi_exec_op(struct spi_mem *mem, const struct spi_mem_op *o
 		else
 			ret = aspeed_spi_write_user(chip, op);
 	}
+
+	if (aspi->data->safs_start)
+		aspi->data->safs_start(aspi);
 
 	/* Restore defaults */
 	if (addr_mode != addr_mode_backup)
@@ -860,6 +874,41 @@ static u32 aspeed_spi_segment_ast2600_reg(struct aspeed_spi *aspi,
 		((end - 1) & AST2600_SEG_ADDR_MASK);
 }
 
+/* The Segment Registers of the AST2700 use a 64KB unit. */
+#define AST2700_SEG_ADDR_MASK 0x7fff0000
+
+static phys_addr_t aspeed_spi_segment_ast2700_start(struct aspeed_spi *aspi,
+						    u32 reg)
+{
+	u64 start_offset = (reg << 16) & AST2700_SEG_ADDR_MASK;
+
+	if (!start_offset)
+		return aspi->ahb_base_phy;
+
+	return aspi->ahb_base_phy + start_offset;
+}
+
+static phys_addr_t aspeed_spi_segment_ast2700_end(struct aspeed_spi *aspi,
+						  u32 reg)
+{
+	u64 end_offset = reg & AST2700_SEG_ADDR_MASK;
+
+	if (!end_offset)
+		return aspi->ahb_base_phy;
+
+	return aspi->ahb_base_phy + end_offset;
+}
+
+static u32 aspeed_spi_segment_ast2700_reg(struct aspeed_spi *aspi,
+					  phys_addr_t start, phys_addr_t end)
+{
+	if (start == end)
+		return 0;
+
+	return (u32)(((start & AST2700_SEG_ADDR_MASK) >> 16) |
+		     (end & AST2700_SEG_ADDR_MASK));
+}
+
 /*
  * Read timing compensation sequences
  */
@@ -1204,6 +1253,57 @@ static const struct aspeed_spi_data ast2600_spi_data = {
 	.segment_reg   = aspeed_spi_segment_ast2600_reg,
 };
 
+static void aspeed_spi_ast2700_safs_start(struct aspeed_spi *aspi)
+{
+	u32 val;
+
+	val = readl(aspi->regs + MISC_CTRL_REG);
+	val |= SPI_UNALGNED_ACCESS | SPI_USER_CMD_MODE;
+	val &= ~SPI_CS_CONTINUOUS;
+	writel(val, aspi->regs + MISC_CTRL_REG);
+}
+
+static void aspeed_spi_ast2700_safs_stop(struct aspeed_spi *aspi)
+{
+	u32 val;
+
+	val = readl(aspi->regs + MISC_CTRL_REG);
+	val &= ~GENMASK(27, 24);
+	writel(val, aspi->regs + MISC_CTRL_REG);
+}
+
+static const struct aspeed_spi_data ast2700_fmc_data = {
+	.max_cs	       = 3,
+	.hastype       = false,
+	.mode_bits     = SPI_RX_QUAD | SPI_TX_QUAD,
+	.we0	       = 16,
+	.ctl0	       = CE0_CTRL_REG,
+	.timing	       = CE0_TIMING_COMPENSATION_REG,
+	.hclk_mask     = 0xf0fff0ff,
+	.hdiv_max      = 2,
+	.calibrate     = aspeed_spi_ast2600_calibrate,
+	.segment_start = aspeed_spi_segment_ast2700_start,
+	.segment_end   = aspeed_spi_segment_ast2700_end,
+	.segment_reg   = aspeed_spi_segment_ast2700_reg,
+};
+
+static const struct aspeed_spi_data ast2700_spi_data = {
+	.max_cs	       = 2,
+	.hastype       = false,
+	.mode_bits     = SPI_RX_QUAD | SPI_TX_QUAD,
+	.we0	       = 16,
+	.ctl0	       = CE0_CTRL_REG,
+	.timing	       = CE0_TIMING_COMPENSATION_REG,
+	.hclk_mask     = 0xf0fff0ff,
+	.hdiv_max      = 2,
+	.calibrate     = aspeed_spi_ast2600_calibrate,
+	.segment_start = aspeed_spi_segment_ast2700_start,
+	.segment_end   = aspeed_spi_segment_ast2700_end,
+	.segment_reg   = aspeed_spi_segment_ast2700_reg,
+	.safs_start    = aspeed_spi_ast2700_safs_start,
+	.safs_stop     = aspeed_spi_ast2700_safs_stop,
+};
+
 static const struct of_device_id aspeed_spi_matches[] = {
 	{ .compatible = "aspeed,ast2400-fmc", .data = &ast2400_fmc_data },
 	{ .compatible = "aspeed,ast2400-spi", .data = &ast2400_spi_data },
@@ -1211,6 +1311,8 @@ static const struct of_device_id aspeed_spi_matches[] = {
 	{ .compatible = "aspeed,ast2500-spi", .data = &ast2500_spi_data },
 	{ .compatible = "aspeed,ast2600-fmc", .data = &ast2600_fmc_data },
 	{ .compatible = "aspeed,ast2600-spi", .data = &ast2600_spi_data },
+	{ .compatible = "aspeed,ast2700-fmc", .data = &ast2700_fmc_data },
+	{ .compatible = "aspeed,ast2700-spi", .data = &ast2700_spi_data },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, aspeed_spi_matches);
