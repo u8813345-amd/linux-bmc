@@ -569,8 +569,12 @@ static void dw_i3c_master_end_xfer_locked(struct dw_i3c_master *master, u32 isr)
 		u32 resp;
 
 		resp = readl(master->regs + RESPONSE_QUEUE_PORT);
-
-		cmd = &xfer->cmds[RESPONSE_PORT_TID(resp)];
+		if (RESPONSE_PORT_TID(resp) == 0) {
+			dev_err(&master->base.dev,
+				"Invalid TID in response: %x\n", resp);
+			continue;
+		}
+		cmd = &xfer->cmds[RESPONSE_PORT_TID(resp) - 1];
 		cmd->rx_len = RESPONSE_PORT_DATA_LEN(resp);
 		cmd->error = RESPONSE_PORT_ERR_STATUS(resp);
 		if (cmd->rx_len && !cmd->error)
@@ -898,7 +902,8 @@ static int dw_i3c_ccc_set(struct dw_i3c_master *master,
 		      COMMAND_PORT_DEV_INDEX(pos) |
 		      COMMAND_PORT_CMD(ccc->id) |
 		      COMMAND_PORT_TOC |
-		      COMMAND_PORT_ROC;
+		      COMMAND_PORT_ROC |
+			  COMMAND_PORT_TID(1);
 
 	sda_lvl_pre = FIELD_GET(SDA_LINE_SIGNAL_LEVEL,
 				readl(master->regs + PRESENT_STATE));
@@ -952,7 +957,8 @@ static int dw_i3c_ccc_get(struct dw_i3c_master *master, struct i3c_ccc_cmd *ccc)
 		      COMMAND_PORT_DEV_INDEX(pos) |
 		      COMMAND_PORT_CMD(ccc->id) |
 		      COMMAND_PORT_TOC |
-		      COMMAND_PORT_ROC;
+		      COMMAND_PORT_ROC |
+			  COMMAND_PORT_TID(1);
 
 	sda_lvl_pre = FIELD_GET(SDA_LINE_SIGNAL_LEVEL,
 				readl(master->regs + PRESENT_STATE));
@@ -1078,7 +1084,8 @@ static int dw_i3c_master_daa(struct i3c_master_controller *m)
 		      COMMAND_PORT_CMD(I3C_CCC_ENTDAA) |
 		      COMMAND_PORT_ADDR_ASSGN_CMD |
 		      COMMAND_PORT_TOC |
-		      COMMAND_PORT_ROC;
+		      COMMAND_PORT_ROC |
+			  COMMAND_PORT_TID(1);
 
 	sda_lvl_pre = FIELD_GET(SDA_LINE_SIGNAL_LEVEL,
 				readl(master->regs + PRESENT_STATE));
@@ -1180,7 +1187,7 @@ static int dw_i3c_master_priv_xfers(struct i3c_dev_desc *dev,
 				COMMAND_PORT_SPEED(dev->info.max_write_ds);
 		}
 
-		cmd->cmd_lo |= COMMAND_PORT_TID(i) |
+		cmd->cmd_lo |= COMMAND_PORT_TID(i + 1) |
 			       COMMAND_PORT_DEV_INDEX(data->index) |
 			       COMMAND_PORT_ROC;
 
@@ -1346,7 +1353,7 @@ static int dw_i3c_master_i2c_xfers(struct i2c_dev_desc *dev,
 		cmd->cmd_hi = COMMAND_PORT_ARG_DATA_LEN(i2c_xfers[i].len) |
 			COMMAND_PORT_TRANSFER_ARG;
 
-		cmd->cmd_lo = COMMAND_PORT_TID(i) |
+		cmd->cmd_lo = COMMAND_PORT_TID(i + 1) |
 			      COMMAND_PORT_DEV_INDEX(data->index) |
 			      COMMAND_PORT_ROC;
 
