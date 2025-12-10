@@ -314,7 +314,7 @@ static int sbtsi_i3c_probe(struct i3c_device *i3cdev)
 	mutex_init(&tsi_dev->lock);
 
 	dev_set_drvdata(dev, (void *)tsi_dev);
-	hwmon_dev = devm_hwmon_device_register_with_info(dev, "sbtsi_i3c", tsi_dev,
+	hwmon_dev = devm_hwmon_device_register_with_info(dev, "sbtsi", tsi_dev,
 							 &sbtsi_chip_info, NULL);
 
 	if (!hwmon_dev)
@@ -387,6 +387,8 @@ static void sbtsi_i2c_remove(struct i2c_client *client)
 }
 
 static const struct i3c_device_id sbtsi_i3c_id[] = {
+	I3C_DEVICE_EXTRA_INFO(0x112, 0, 0x118, NULL),
+	I3C_DEVICE_EXTRA_INFO(0, 0x0, 0x118, NULL),
 	I3C_DEVICE_EXTRA_INFO(0x112, 0, 0x1, NULL),
 	{}
 };

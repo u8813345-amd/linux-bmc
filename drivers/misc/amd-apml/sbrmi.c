@@ -750,7 +750,7 @@ static int sbrmi_i3c_probe(struct i3c_device *i3cdev)
 	if (ret)
 		return ret;
 
-	hwmon_dev = devm_hwmon_device_register_with_info(dev, "sbrmi_i3c", rmi_dev,
+	hwmon_dev = devm_hwmon_device_register_with_info(dev, "sbrmi", rmi_dev,
 							 &sbrmi_chip_info, NULL);
 
 	if (!hwmon_dev)
@@ -852,6 +852,8 @@ static const struct of_device_id __maybe_unused sbrmi_of_match[] = {
 MODULE_DEVICE_TABLE(of, sbrmi_of_match);
 
 static const struct i3c_device_id sbrmi_i3c_id[] = {
+	I3C_DEVICE_EXTRA_INFO(0x112, 0x0, 0x1118, NULL),
+	I3C_DEVICE_EXTRA_INFO(0, 0x0, 0x1118, NULL),
 	I3C_DEVICE_EXTRA_INFO(0x112, 0x0, 0x2, NULL),
 	{}
 };
