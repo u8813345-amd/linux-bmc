@@ -369,14 +369,14 @@ static void dw_i3c_master_enable(struct dw_i3c_master *master)
 static int dw_i3c_master_exit_halt(struct dw_i3c_master *master)
 {
 	u32 status;
-	u32 halt_state = CM_TFR_STS_MASTER_HALT;
+
 	int ret;
 
 	writel(readl(master->regs + DEVICE_CTRL) | DEV_CTRL_RESUME,
 	       master->regs + DEVICE_CTRL);
 
-	ret = readl_poll_timeout_atomic(master->regs + PRESENT_STATE, status,
-					FIELD_GET(CM_TFR_STS, status) != halt_state,
+	ret = readl_poll_timeout_atomic(master->regs + DEVICE_CTRL, status,
+					!(status & DEV_CTRL_RESUME),
 					10, 1000000);
 
 	if (ret)
@@ -399,12 +399,17 @@ static int dw_i3c_master_enter_halt(struct dw_i3c_master *master, bool by_sw)
 	u32 halt_state = CM_TFR_STS_MASTER_HALT;
 	int ret;
 
-	if (by_sw)
+	if (by_sw) {
 		dw_i3c_master_abort(master);
 
-	ret = readl_poll_timeout_atomic(master->regs + PRESENT_STATE, status,
-					FIELD_GET(CM_TFR_STS, status) == halt_state,
-					10, 1000000);
+		ret = readl_poll_timeout_atomic(master->regs + DEVICE_CTRL, status,
+						!(status & DEV_CTRL_ABORT),
+						10, 1000000);
+	} else {
+		ret = readl_poll_timeout_atomic(master->regs + PRESENT_STATE, status,
+						FIELD_GET(CM_TFR_STS, status) == halt_state,
+						10, 1000000);
+	}
 
 	if (ret)
 		dev_err(&master->base.dev,
