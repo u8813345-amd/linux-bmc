@@ -49,6 +49,10 @@
 
 /* dw-i3c registers */
 #define IBI_QUEUE_STATUS			0x18
+#define IBI_QUEUE_STATUS_DATA_LEN(x)	((x) & GENMASK(7, 0))
+
+#define QUEUE_STATUS_LEVEL		0x4c
+#define QUEUE_STATUS_IBI_STATUS_CNT(x) (((x) & GENMASK(28, 24)) >> 24)
 
 #define PRESENT_STATE				0x54
 #define   CM_TFR_STS				GENMASK(13, 8)
@@ -211,6 +215,20 @@ static void ast2600_i3c_gen_target_reset_pattern(struct dw_i3c_master *dw)
 			  SDA_IN_SW_MODE_EN | SCL_IN_SW_MODE_EN, 0);
 }
 
+static void aspeed_i3c_drain_ibi_queue(struct dw_i3c_master *dw)
+{
+	/*
+	 * Clear the IBI queue to avoid any stale IBI data when
+	 * re-enabling the controller.
+	 */
+	u32 ibi_status = readl(dw->regs + IBI_QUEUE_STATUS);
+	u8 length = IBI_QUEUE_STATUS_DATA_LEN(ibi_status);
+	int i, nwords = (length + 3) >> 2;
+
+	for (i = 0; i < nwords; i++)
+		readl(dw->regs + IBI_QUEUE_STATUS);
+}
+
 static bool ast2600_i3c_fsm_exit_serv_ibi(struct dw_i3c_master *dw)
 {
 	u32 state;
@@ -219,7 +237,7 @@ static bool ast2600_i3c_fsm_exit_serv_ibi(struct dw_i3c_master *dw)
 	 * Clear the IBI queue to enable the hardware to generate SCL and
 	 * begin detecting the T-bit low to stop reading IBI data.
 	 */
-	readl(dw->regs + IBI_QUEUE_STATUS);
+	aspeed_i3c_drain_ibi_queue(dw);
 	state = FIELD_GET(CM_TFR_STS, readl(dw->regs + PRESENT_STATE));
 	if (state == CM_TFR_STS_MASTER_SERV_IBI)
 		return false;
@@ -230,7 +248,8 @@ static bool ast2600_i3c_fsm_exit_serv_ibi(struct dw_i3c_master *dw)
 static void ast2600_i3c_gen_tbits_in(struct dw_i3c_master *dw)
 {
 	struct ast2600_i3c *i3c = to_ast2600_i3c(dw);
-	bool is_idle;
+	bool is_halted;
+	u32 nibi, i;
 	int ret;
 
 	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
@@ -241,14 +260,21 @@ static void ast2600_i3c_gen_tbits_in(struct dw_i3c_master *dw)
 	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
 			  SDA_IN_SW_MODE_VAL, 0);
 	ret = readx_poll_timeout_atomic(ast2600_i3c_fsm_exit_serv_ibi, dw,
-					is_idle, is_idle, 0, 2000000);
+					is_halted, is_halted, 0, 2000000);
 	regmap_write_bits(i3c->global_regs, AST2600_I3CG_REG1(i3c->global_idx),
 			  SDA_IN_SW_MODE_EN, 0);
-	if (ret)
-		dev_err(&dw->base.dev,
-			"Failed to exit the I3C fsm from %lx(MASTER_SERV_IBI): %d",
-			FIELD_GET(CM_TFR_STS, readl(dw->regs + PRESENT_STATE)),
-			ret);
+	if (ret) {
+ 		dev_err(&dw->base.dev,
+ 			"Failed to exit the I3C fsm from %lx(MASTER_SERV_IBI): %d",
+ 			FIELD_GET(CM_TFR_STS, readl(dw->regs + PRESENT_STATE)),
+ 			ret);
+	} else {
+		/* Clear the dummy data generated in this recovery process */
+		nibi = readl(dw->regs + QUEUE_STATUS_LEVEL);
+		nibi = QUEUE_STATUS_IBI_STATUS_CNT(nibi);
+		for (i = 0; i < nibi; i++)
+			aspeed_i3c_drain_ibi_queue(dw);
+	}
 }
 
 static const struct dw_i3c_platform_ops ast2600_i3c_ops = {
