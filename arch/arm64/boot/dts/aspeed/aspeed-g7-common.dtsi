@@ -75,6 +75,11 @@
 			#interrupt-cells = <1>;
 			interrupt-controller;
 		};
+
+		pinctrl0: pinctrl@400 {
+			compatible = "aspeed,ast2700-soc0-pinctrl";
+			reg = <0x400 0x318>;
+		};
 	};
 
 	gpio0: gpio@12c11000 {
@@ -139,6 +144,11 @@
 			interrupts-extended = <&intc1 186>;
 			#interrupt-cells = <1>;
 			interrupt-controller;
+		};
+
+		pinctrl1: pinctrl@400 {
+			compatible = "aspeed,ast2700-soc1-pinctrl";
+			reg = <0x400 0x2A0>;
 		};
 	};
 
@@ -324,3 +334,5 @@
 		status = "disabled";
 	};
 };
+
+#include "aspeed-g7-pinctrl.dtsi"
