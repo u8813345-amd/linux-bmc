@@ -324,6 +324,11 @@
 	"FM_BMC_PROT_LS_EN", "AC_PWR_BMC_BTN_N", "", "";
 };
 
+/* Enable JTAG 1 */
+&jtag1 {
+ status = "okay";
+};
+
 // L Bridge Board
 &i2c0 {
 	status = "okay";
