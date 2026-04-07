@@ -20,6 +20,8 @@
 #include <uapi/linux/ioctl.h>
 #include <uapi/linux/jtag.h>
 
+#define USE_ASPEED_26XX
+
 #define ASPEED_SCU_RESET_JTAG		BIT(22)
 #define ASPEED_2600_SCU_CLEAR_REGISTER 0x04
 
@@ -93,6 +95,15 @@
 
 #define ASPEED_JTAG_GET_TDI(direction, byte) \
 	(((direction) & JTAG_WRITE_XFER) ? byte : UINT_MAX)
+
+/* ASPEED 26XX */
+#define ASPEED_JTAG_CTL_26XX_TRANS_LEN(x)	((x) << 8)
+#define ASPEED_JTAG_TRANS_LEN(len) \
+	(ASPEED_JTAG_CTL_ENG_EN | \
+	 ASPEED_JTAG_CTL_ENG_OUT_EN | \
+	 ASPEED_JTAG_CTL_26XX_TRANS_LEN(len))
+#define ASPEED_JTAG_CTL_26XX_INST_EN		BIT(1)
+#define ASPEED_JTAG_CTL_26XX_LASPEED_TRANS	BIT(4)
 
 #define ASPEED_JTAG_TCK_WAIT		10
 #define ASPEED_JTAG_RESET_CNTR		10
@@ -680,6 +691,23 @@ static int aspeed_jtag_xfer_push_data(struct aspeed_jtag *aspeed_jtag,
 {
 	int res = 0;
 
+#ifdef USE_ASPEED_26XX
+	aspeed_jtag_write(aspeed_jtag, ASPEED_JTAG_TRANS_LEN(bits_len),
+			  ASPEED_JTAG_CTRL);
+	if (type == JTAG_SIR_XFER) {
+		aspeed_jtag_write(aspeed_jtag,
+				  ASPEED_JTAG_TRANS_LEN(bits_len) |
+				  ASPEED_JTAG_CTL_26XX_INST_EN,
+				  ASPEED_JTAG_CTRL);
+		res = aspeed_jtag_wait_instruction_pause(aspeed_jtag);
+	} else {
+		aspeed_jtag_write(aspeed_jtag,
+				  ASPEED_JTAG_TRANS_LEN(bits_len) |
+				  ASPEED_JTAG_CTL_DATA_EN,
+				  ASPEED_JTAG_CTRL);
+		res = aspeed_jtag_wait_data_pause_complete(aspeed_jtag);
+	}
+#else
 	if (type == JTAG_SIR_XFER) {
 		aspeed_jtag_write(aspeed_jtag, ASPEED_JTAG_IOUT_LEN(bits_len),
 				  ASPEED_JTAG_CTRL);
@@ -693,6 +721,7 @@ static int aspeed_jtag_xfer_push_data(struct aspeed_jtag *aspeed_jtag,
 				  ASPEED_JTAG_CTL_DATA_EN, ASPEED_JTAG_CTRL);
 		res = aspeed_jtag_wait_data_pause_complete(aspeed_jtag);
 	}
+#endif
 	return res;
 }
 
@@ -703,6 +732,27 @@ static int aspeed_jtag_xfer_push_data_last(struct aspeed_jtag *aspeed_jtag,
 {
 	int res = 0;
 
+#ifdef USE_ASPEED_26XX
+	aspeed_jtag_write(aspeed_jtag,
+			  ASPEED_JTAG_TRANS_LEN(shift_bits) |
+			  ASPEED_JTAG_CTL_26XX_LASPEED_TRANS,
+			  ASPEED_JTAG_CTRL);
+	if (type == JTAG_SIR_XFER) {
+		aspeed_jtag_write(aspeed_jtag,
+				  ASPEED_JTAG_TRANS_LEN(shift_bits) |
+				  ASPEED_JTAG_CTL_26XX_LASPEED_TRANS |
+				  ASPEED_JTAG_CTL_26XX_INST_EN,
+				  ASPEED_JTAG_CTRL);
+		res = aspeed_jtag_wait_instruction_complete(aspeed_jtag);
+	} else {
+		aspeed_jtag_write(aspeed_jtag,
+				  ASPEED_JTAG_TRANS_LEN(shift_bits) |
+				  ASPEED_JTAG_CTL_26XX_LASPEED_TRANS |
+				  ASPEED_JTAG_CTL_DATA_EN,
+				  ASPEED_JTAG_CTRL);
+		res = aspeed_jtag_wait_data_complete(aspeed_jtag);
+	}
+#else
 	if (type == JTAG_SIR_XFER) {
 		aspeed_jtag_write(aspeed_jtag,
 				  ASPEED_JTAG_IOUT_LEN(shift_bits) |
@@ -726,6 +776,7 @@ static int aspeed_jtag_xfer_push_data_last(struct aspeed_jtag *aspeed_jtag,
 				  ASPEED_JTAG_CTRL);
 		res = aspeed_jtag_wait_data_complete(aspeed_jtag);
 	}
+#endif
 	return res;
 }
 
