@@ -870,6 +870,20 @@
 	status = "okay";
 };
 
+// CPU SIC/SID (APML)
+&i3c0 {
+    status = "okay";
+    i3c-scl-hz = <6000000>;
+        sbtsi_p0_0: sbtsi@4c,22400000001 {
+        reg = <0x4c 0x224 0x00000001>;
+        assigned-address = <0x4c>;
+    };
+    sbrmi_p0_1: sbrmi@3c,22400000002 {
+        reg = <0x3c 0x224 0x00000002>;
+        assigned-address = <0x3c>;
+    };
+};
+
 &kcs2 {
 	aspeed,lpc-io-reg = <0xca8>;
 	status = "okay";
