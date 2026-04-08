@@ -899,6 +899,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ncsi3_default>;
 	use-ncsi;
+	ncsi-ctrl,start-redo-probe;
+	ncsi-package = <1>;
 };
 
 &sgpiom0 {
