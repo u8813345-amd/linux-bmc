@@ -884,6 +884,16 @@
 	status = "okay";
 };
 
+&lpc_pcc {
+	rec-mode = <0x1>;
+	port-addr = <0x80>;
+	port-addr-hbits-select = <0x1>;
+	port-addr-xbits = <0x3>;
+	dma-mode;
+	A2600-15;
+	status = "okay";
+};
+
 &mac2 {
 	status = "okay";
 	pinctrl-names = "default";
