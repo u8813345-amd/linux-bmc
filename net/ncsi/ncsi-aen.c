@@ -74,7 +74,7 @@ static int ncsi_aen_handler_lsc(struct ncsi_dev_priv *ndp,
 	had_link = !!(old_data & 0x1);
 	has_link = !!(data & 0x1);
 
-	netdev_dbg(ndp->ndev.dev, "NCSI: LSC AEN - channel %u state %s\n",
+	netdev_info(ndp->ndev.dev, "NCSI: LSC AEN - channel %u state %s\n",
 		   nc->id, data & 0x1 ? "up" : "down");
 
 	chained = !list_empty(&nc->link);
@@ -148,6 +148,8 @@ static int ncsi_aen_handler_cr(struct ncsi_dev_priv *ndp,
 	if (!nc)
 		return -ENODEV;
 
+	netdev_info(ndp->ndev.dev,
+			"NCSI: Configuration required on channel %u\n", nc->id);
 	spin_lock_irqsave(&nc->lock, flags);
 	if (!list_empty(&nc->link) ||
 	    nc->state != NCSI_CHANNEL_ACTIVE) {
@@ -188,7 +190,7 @@ static int ncsi_aen_handler_hncdsc(struct ncsi_dev_priv *ndp,
 	hncdsc = (struct ncsi_aen_hncdsc_pkt *)h;
 	ncm->data[3] = ntohl(hncdsc->status);
 	spin_unlock_irqrestore(&nc->lock, flags);
-	netdev_dbg(ndp->ndev.dev,
+	netdev_info(ndp->ndev.dev,
 		   "NCSI: host driver %srunning on channel %u\n",
 		   ncm->data[3] & 0x1 ? "" : "not ", nc->id);
 

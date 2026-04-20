@@ -688,7 +688,7 @@ static int ncsi_set_channel_mask_nl(struct sk_buff *msg,
 			spin_unlock_irqrestore(&package->lock, flags);
 			return -ERANGE;
 		}
-		netdev_dbg(ndp->ndev.dev,
+		netdev_info(ndp->ndev.dev,
 			   "NCSI: Channel %u set as preferred channel\n",
 			   channel->id);
 	}
@@ -696,7 +696,7 @@ static int ncsi_set_channel_mask_nl(struct sk_buff *msg,
 	package->channel_whitelist =
 		nla_get_u32(info->attrs[NCSI_ATTR_CHANNEL_MASK]);
 	if (package->channel_whitelist == 0)
-		netdev_dbg(ndp->ndev.dev,
+		netdev_info(ndp->ndev.dev,
 			   "NCSI: Package %u set to all channels disabled\n",
 			   package->id);
 
