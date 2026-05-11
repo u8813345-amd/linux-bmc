@@ -1073,7 +1073,7 @@
 	"LEAK_DETECT_RMC_N", "RTM_MUX_R",
 	"HDR_P0_NMI_BTN_BUF_R_N", "FPGA_JTAG_SCM_DBREQ_N",
 	"Channel6_leakage_present", "whdt_sel",
-	"", "",
+	"", "JTAG_CPLD_TRST_R_N",
 	"", "",
 	"", "",
 	"", "",
