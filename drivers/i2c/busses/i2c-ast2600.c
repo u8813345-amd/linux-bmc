@@ -345,6 +345,7 @@ struct ast2600_i2c_bus {
 	u32					debounce_level;
 	u32					manual_min_high;
 	u32					manual_data_hold;
+	u32					duty_cycle;
 	/* Buffer mode */
 	void __iomem			*buf_base;
 	int (*setup_tx)(u32 cmd, struct ast2600_i2c_bus *i2c_bus);
@@ -414,20 +415,31 @@ static void ast2600_i2c_ac_timing_config(struct ast2600_i2c_bus *i2c_bus)
 			   (((clk_div_reg >> ((i - 1) * 8)) & GENMASK(7, 0)) + 2);
 		else
 			base_clk[i] = base_clk[4] >> (i - 4);
-		if ((base_clk[i] / i2c_bus->timing_info.bus_freq_hz) <= 32) {
+
+		u32 tmp_divisor = DIV_ROUND_UP(base_clk[i], i2c_bus->timing_info.bus_freq_hz);
+		u32 tmp_high, tmp_low;
+
+		if (i2c_bus->duty_cycle > 0) {
+			tmp_high = DIV_ROUND_UP(tmp_divisor * i2c_bus->duty_cycle, 100);
+			tmp_low = tmp_divisor - tmp_high;
+		} else {
+			tmp_low = (tmp_divisor * 9) / 16;
+			if (tmp_low == 0) tmp_low = 1;
+			tmp_high = tmp_divisor - tmp_low;
+		}
+
+		if (tmp_high <= 16 && tmp_low <= 16 && tmp_divisor <= 32) {
 			baseclk_idx = i;
-			divisor = DIV_ROUND_UP(base_clk[i], i2c_bus->timing_info.bus_freq_hz);
-			/* calculate the high min value */
+			divisor = tmp_divisor;
+			scl_high = tmp_high;
+			scl_low = tmp_low;
 			scl_high_min = i2c_cal_high_min_config(i2c_bus, (u64)base_clk[i]);
-			dev_dbg(i2c_bus->dev, "scl_high_min: %d\n", scl_high_min);
 			break;
 		}
 	}
 
-	baseclk_idx = min(baseclk_idx, 15);
-	divisor = min(divisor, 32);
-	scl_low = min(divisor * 9 / 16 - 1, 15);
-	scl_high = (divisor - scl_low - 2) & GENMASK(3, 0);
+	if (scl_high) scl_high--;
+	if (scl_low) scl_low--;
 
 	if (i2c_bus->manual_min_high) {
 		if (i2c_bus->manual_min_high > scl_high)
@@ -446,7 +458,7 @@ static void ast2600_i2c_ac_timing_config(struct ast2600_i2c_bus *i2c_bus)
 	}
 
 	data = baseclk_idx;
-	data |= scl_high_min << 20 | scl_high << 16 | scl_low << 12 | sda_data_hold << 10;
+	data |= scl_high_min << 20 | (scl_high & 0xf) << 16 | (scl_low & 0xf) << 12 | sda_data_hold << 10;
 
 	if (i2c_bus->timeout) {
 		i2c_bus->timeout = min(i2c_bus->timeout, 31);
@@ -485,22 +497,52 @@ static void ast2700_i2c_ac_timing_config(struct ast2600_i2c_bus *i2c_bus)
 
 	/* Find the most used ac-timing */
 	for (int i = 0; i < 3; i++) {
-		divid_term = ((clk_div_reg >> (i << 3)) & GENMASK(7, 0));
-		base_clk = (i2c_bus->apb_clk) / (divid_term + 1);
-		if ((base_clk / i2c_bus->timing_info.bus_freq_hz) <= 32) {
+		u8 divid_term = ((clk_div_reg >> (i << 3)) & GENMASK(7, 0));
+		unsigned long tmp_base_clk = (i2c_bus->apb_clk) / (divid_term + 1);
+		u32 tmp_divisor = DIV_ROUND_UP(tmp_base_clk, i2c_bus->timing_info.bus_freq_hz);
+		u32 tmp_high, tmp_low;
+
+		if (i2c_bus->duty_cycle > 0) {
+			tmp_high = DIV_ROUND_UP(tmp_divisor * i2c_bus->duty_cycle, 100);
+			tmp_low = tmp_divisor - tmp_high;
+		} else {
+			tmp_low = (tmp_divisor * 9) / 16;
+			if (tmp_low == 0) tmp_low = 1;
+			tmp_high = tmp_divisor - tmp_low;
+		}
+
+		if (max(tmp_high, tmp_low) <= 16 && tmp_divisor <= 32) {
 			baseclk_idx = divid_term;
-			divisor = DIV_ROUND_UP(base_clk, i2c_bus->timing_info.bus_freq_hz);
+			base_clk = tmp_base_clk;
+			divisor = tmp_divisor;
+			scl_high = tmp_high;
+			scl_low = tmp_low;
 			break;
 		}
 	}
 
 	/* Can't find a ac-timing then search a fitting one */
-	if (baseclk_idx == 0) {
+	if (baseclk_idx == -1) {
 		for (int i = 0; i < 0x100; i++) {
-			base_clk = (i2c_bus->apb_clk) / (i + 1);
-			if ((base_clk / i2c_bus->timing_info.bus_freq_hz) <= 32) {
+			unsigned long tmp_base_clk = (i2c_bus->apb_clk) / (i + 1);
+			u32 tmp_divisor = DIV_ROUND_UP(tmp_base_clk, i2c_bus->timing_info.bus_freq_hz);
+			u32 tmp_high, tmp_low;
+
+			if (i2c_bus->duty_cycle > 0) {
+				tmp_high = DIV_ROUND_UP(tmp_divisor * i2c_bus->duty_cycle, 100);
+				tmp_low = tmp_divisor - tmp_high;
+			} else {
+				tmp_low = (tmp_divisor * 9) / 16;
+				if (tmp_low == 0) tmp_low = 1;
+				tmp_high = tmp_divisor - tmp_low;
+			}
+
+			if (max(tmp_high, tmp_low) <= 16 && tmp_divisor <= 32) {
 				baseclk_idx = i;
-				divisor = DIV_ROUND_UP(base_clk, i2c_bus->timing_info.bus_freq_hz);
+				base_clk = tmp_base_clk;
+				divisor = tmp_divisor;
+				scl_high = tmp_high;
+				scl_low = tmp_low;
 				break;
 			}
 		}
@@ -508,12 +550,9 @@ static void ast2700_i2c_ac_timing_config(struct ast2600_i2c_bus *i2c_bus)
 
 	/* calculate the high min value */
 	scl_high_min = i2c_cal_high_min_config(i2c_bus, (u64)base_clk);
-	dev_dbg(i2c_bus->dev, "scl_high_min: %d\n", scl_high_min);
 
-	baseclk_idx = min(baseclk_idx, 0xff);
-	divisor = min(divisor, 32);
-	scl_low = min((DIV_ROUND_UP(divisor * 9, 16)) - 1, 15);
-	scl_high = (divisor - scl_low - 2) & GENMASK(3, 0);
+	if (scl_high) scl_high--;
+	if (scl_low)  scl_low--;
 
 	/* fill manual min high value */
 	if (i2c_bus->manual_min_high) {
@@ -533,8 +572,8 @@ static void ast2700_i2c_ac_timing_config(struct ast2600_i2c_bus *i2c_bus)
 			sda_data_hold = i2c_bus->manual_data_hold;
 	}
 
-	data = baseclk_idx;
-	data |= scl_high_min << 20 | scl_high << 16 | scl_low << 12 | sda_data_hold << 10;
+	data = (u32)baseclk_idx;
+	data |= scl_high_min << 20 | (scl_high & 0xf) << 16 | (scl_low & 0xf) << 12 | sda_data_hold << 10;
 
 	if (i2c_bus->timeout) {
 		i2c_bus->timeout = min(i2c_bus->timeout, 255);
@@ -2396,6 +2435,14 @@ static int ast2600_i2c_probe(struct platform_device *pdev)
 	i2c_bus->apb_clk = clk_get_rate(i2c_bus->clk);
 
 	i2c_parse_fw_timings(i2c_bus->dev, &i2c_bus->timing_info, true);
+
+	i2c_bus->duty_cycle = 0;
+	if (!device_property_read_u32(dev, "i2c-clk-high-min-percent", &i2c_bus->duty_cycle)) {
+		if (i2c_bus->duty_cycle > 100) {
+			dev_warn(dev, "Invalid duty cycle %d, ignoring.\n", i2c_bus->duty_cycle);
+			i2c_bus->duty_cycle = 0;
+		}
+	}
 
 	/* Initialize the I2C adapter */
 	i2c_bus->adap.owner = THIS_MODULE;
