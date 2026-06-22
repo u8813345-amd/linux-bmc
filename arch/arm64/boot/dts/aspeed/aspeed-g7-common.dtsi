@@ -23,6 +23,28 @@
 		};
 	};
 
+	ehci0: usb@12061000 {
+		compatible = "aspeed,ast2700-ehci", "generic-ehci";
+		reg = <0x0 0x12061000 0x0 0x100>;
+		interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&syscon0 SCU0_CLK_GATE_PORTAUSB2CLK>;
+		resets = <&syscon0 SCU0_RESET_PORTA_VHUB_EHCI>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_usb2ah_default>;
+		status = "disabled";
+	};
+
+	ehci1: usb@12063000 {
+		compatible = "aspeed,ast2700-ehci", "generic-ehci";
+		reg = <0x0 0x12063000 0x0 0x100>;
+		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&syscon0 SCU0_CLK_GATE_PORTBUSB2CLK>;
+		resets = <&syscon0 SCU0_RESET_PORTB_VHUB_EHCI>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_usb2bh_default>;
+		status = "disabled";
+	};
+
 	intc0: interrupt-controller@12100000 {
 		compatible = "aspeed,ast2700-intc0";
 		reg = <0x0 0x12100000 0x0 0x3c00>;
@@ -489,6 +511,17 @@
 			spi-rx-bus-width = <2>;
 			status = "disabled";
 		};
+	};
+
+	mdio0: mdio@14040000 {
+		compatible = "aspeed,ast2700-mdio", "aspeed,ast2600-mdio";
+		reg = <0x0 0x14040000 0x0 0x8>;
+		resets = <&syscon1 SCU1_RESET_MII>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mdio0_default>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
 	};
 
 	mac0: ethernet@14050000 {
