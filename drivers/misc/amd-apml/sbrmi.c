@@ -855,6 +855,7 @@ static const struct i3c_device_id sbrmi_i3c_id[] = {
 	I3C_DEVICE_EXTRA_INFO(0x112, 0x0, 0x1118, NULL),
 	I3C_DEVICE_EXTRA_INFO(0, 0x0, 0x1118, NULL),
 	I3C_DEVICE_EXTRA_INFO(0x112, 0x0, 0x2, NULL),
+	I3C_DEVICE_EXTRA_INFO(0x112, 0x0, 0x1119, NULL),
 	{}
 };
 MODULE_DEVICE_TABLE(i3c, sbrmi_i3c_id);
