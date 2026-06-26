@@ -1092,7 +1092,7 @@
 	"EAM2_BRD_PRSNT_R_L", "",
 	"EAM3_BRD_PRSNT_R_L", "",
 	"FM_TPM_PRSNT_R_N", "",
-	"PDB_PRSNT_R_N", "",
+	"PDB_L_PRSNT_R_N", "",
 	"PRSNT_EDSFF0_N", "",
 	"PRSNT_CPU0_N", "",
 
