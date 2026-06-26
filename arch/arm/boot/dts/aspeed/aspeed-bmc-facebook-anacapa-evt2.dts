@@ -1067,11 +1067,11 @@
 	"", "",
 
 	/* G0-G7 line 96-111 */
-	"L_PRSNT_EDSFF2_N", "",
-	"L_PRSNT_EDSFF3_N", "",
+	"L_PRSNT_EDSFF0_N", "",
+	"L_PRSNT_EDSFF1_N", "",
 	"R_PRSNT_EDSFF2_N", "",
 	"R_PRSNT_EDSFF3_N", "",
-	"", "",
+	"HPM_EDSFF_PG", "",
 	"", "",
 	"", "",
 	"PRSNT_NFC_BOARD_R", "",
@@ -1093,7 +1093,7 @@
 	"EAM3_BRD_PRSNT_R_L", "",
 	"FM_TPM_PRSNT_R_N", "",
 	"PDB_L_PRSNT_R_N", "",
-	"PRSNT_EDSFF0_N", "",
+	"PRSNT_EDSFF_BOOT_N", "",
 	"PRSNT_CPU0_N", "",
 
 	/* J0-J7 line 144-159 */
@@ -1117,10 +1117,10 @@
 	"PDB_ALERT_R_N", "",
 
 	/* L0-L7 line 176-191 */
-	"CPU0_SP7R1", "",
-	"CPU0_SP7R2", "",
-	"CPU0_SP7R3", "",
-	"CPU0_SP7R4", "",
+	"L_EDSFF0_PG", "",
+	"L_EDSFF1_PG", "",
+	"R_EDSFF2_PG", "",
+	"R_EDSFF3_PG", "",
 	"CPU0_CORETYPE0", "",
 	"CPU0_CORETYPE1", "",
 	"CPU0_CORETYPE2", "",
