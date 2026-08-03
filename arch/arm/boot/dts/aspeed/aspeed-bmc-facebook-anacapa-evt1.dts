@@ -169,6 +169,7 @@
 		status = "okay";
 		m25p,fast-read;
 		label = "bmc";
+		vcc-supply = <&p3v3_bmc_aux>;
 		spi-max-frequency = <50000000>;
 #include "openbmc-flash-layout-128.dtsi"
 	};
@@ -177,6 +178,7 @@
 		status = "okay";
 		m25p,fast-read;
 		label = "alt-bmc";
+		vcc-supply = <&p3v3_bmc_aux>;
 		spi-max-frequency = <50000000>;
 	};
 };
@@ -1124,6 +1126,7 @@
 	flash@0 {
 		compatible = "jedec,spi-nor";
 		label = "pnor";
+		vcc-supply = <&p3v3_bmc_aux>;
 		spi-max-frequency = <12000000>;
 		spi-tx-bus-width = <2>;
 		spi-rx-bus-width = <2>;
