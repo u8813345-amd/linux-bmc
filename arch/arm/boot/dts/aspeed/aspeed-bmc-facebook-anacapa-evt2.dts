@@ -551,27 +551,6 @@
 					"", "";
 			};
 
-			power-monitor@42 {
-				compatible = "lltc,ltc4287";
-				reg = <0x42>;
-				shunt-resistor-micro-ohms = <150>;
-			};
-			power-monitor@43 {
-				compatible = "lltc,ltc4287";
-				reg = <0x43>;
-				shunt-resistor-micro-ohms = <150>;
-			};
-			power-monitor@44 {
-				compatible = "lltc,ltc4287";
-				reg = <0x44>;
-				shunt-resistor-micro-ohms = <250>;
-			};
-			power-monitor@45 {
-				compatible = "lltc,ltc4287";
-				reg = <0x45>;
-				shunt-resistor-micro-ohms = <250>;
-			};
-
 			// R-PDB FRU
 			eeprom@50 {
 				compatible = "atmel,24c128";
@@ -621,22 +600,6 @@
 					"","",
 					"","",
 					"","";
-			};
-
-			power-monitor@40 {
-				compatible = "lltc,ltc4287";
-				reg = <0x40>;
-				shunt-resistor-micro-ohms = <150>;
-			};
-			power-monitor@41 {
-				compatible = "lltc,ltc4287";
-				reg = <0x41>;
-				shunt-resistor-micro-ohms = <150>;
-			};
-			power-monitor@45 {
-				compatible = "lltc,ltc4287";
-				reg = <0x45>;
-				shunt-resistor-micro-ohms = <250>;
 			};
 
 			// L-PDB FRU
